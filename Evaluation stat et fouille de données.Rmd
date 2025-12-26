@@ -1,0 +1,665 @@
+
+Choix de la base de données :
+
+Séoul Bike Sharing Demand
+
+<https://archive.ics.uci.edu/dataset/560/seoul+bike+sharing+demand>
+
+Problématique de départ : Quels sont les facteurs qui influence le nombre de vélos loués ?
+
+Période temporelle : 1er décembre 2017 au 31 décembre 2018
+
+Variable d'intérêt : Rented.Bike.Count - Nombre de vélos loués sur la période allant du 1er décembre 2017 au 31 novembre 2018
+
+##### 1 . Import des données
+
+```{r cars}
+data <-SeoulBikeData
+index <- sample(1:nrow(data), size = round(0.8 * nrow(data)))
+data <- data[index, ]  # 70% pour l'entraînement
+test_data  <- data[-index, ] # 30% pour le test
+
+# Vérification
+cat("Taille train :", nrow(data), "\nTaille test :", nrow(test_data))
+```
+
+```{r cars}
+summary(data$Rented.Bike.Count)
+summary(test_data$Rented.Bike.Count)
+```
+
+2.  Description des variables
+
+##### Dimension de notre base de données
+
+```{r cars}
+dim(data)
+```
+
+##### 2.1 Description de la variable d'intérêt
+
+```{r cars}
+summary(data$Rented.Bike.Count)
+```
+
+```{r cars}
+densite<-density(data$Rented.Bike.Count)
+plot(densite)
+```
+
+##### 2.2 Exploration de ses relations avec les variables explicatives
+
+Matrice de corrélation
+
+```{r cars}
+# Conversion des colonnes valeurs textuels en valeurs numériques
+
+
+data$Functioning.DayNum <- as.numeric(factor(data$Functioning.Day))
+data$HolidayNum <- as.numeric(factor(data$Holiday))
+data$SeasonsNum <- as.numeric(factor(data$Seasons))
+data$DateNum <- as.numeric(factor(data$Date))
+
+cols <- c("Rented.Bike.Count","Hour","Temperature.C.","Humidity...","Wind.speed..m.s.","Visibility..10m","Dew.point.temperature.C.","Solar.Radiation..MJ.m2.","Rainfall.mm.","Snowfall.cm.","SeasonsNum","HolidayNum","Functioning.DayNum","DateNum")
+
+data_filtre <- data[, intersect(cols, names(data))]
+
+# test 
+
+test_data$Functioning.DayNum <- as.numeric(factor(test_data$Functioning.Day))
+test_data$HolidayNum <- as.numeric(factor(test_data$Holiday))
+test_data$SeasonsNum <- as.numeric(factor(test_data$Seasons))
+test_data$DateNum <- as.numeric(factor(test_data$Date))
+
+cols2 <- c("Rented.Bike.Count","Hour","Temperature.C.","Humidity...","Wind.speed..m.s.","Visibility..10m","Dew.point.temperature.C.","Solar.Radiation..MJ.m2.","Rainfall.mm.","Snowfall.cm.","SeasonsNum","HolidayNum","Functioning.DayNum","DateNum")
+
+test_data_filtre <- test_data[, intersect(cols2, names(test_data))]
+
+#test filtré
+summary(test_data$Rented.Bike.Count)
+# train
+summary(data$Rented.Bike.Count)
+
+#test
+summary(test_data_filtre$Rented.Bike.Count)
+#train filtré
+summary(data_filtre$Rented.Bike.Count)
+
+```
+
+```{r cars}
+# Matrice de corrélation
+
+library(ggcorrplot)
+
+cor<-cor(data_filtre)
+
+library(corrplot)
+
+ggcorrplot(cor, 
+           type = "lower", 
+           lab = TRUE,
+           lab_size=2,
+           colors = c("red", "white", "green"),
+           ggtheme=theme_bw,
+           title="Matrice de corrélation")
+```
+
+##### 
+
+```{r cars}
+velos_par_heure3 <- aggregate(data$Rented.Bike.Count ~ data$Hour, data = data, FUN = sum, na.rm = TRUE)
+colnames(velos_par_heure) <- c("Heure", "Total_velos")
+print(velos_par_heure) # Somme des vélos (colonne 8)
+class(velos_par_heure)
+options(scipen=10)
+plot(velos_par_heure3$'data$Hour', velos_par_heure3$'data$Rented.Bike.Count', type = "l",        # "l" pour line (ligne)
+     col = "blue",            # Couleur de la courbe
+     lwd = 3,                 # Épaisseur de la ligne
+     main = "Evolution du nombre de vélos loués par heure",
+     xlab = "Heures",
+     ylab = "Nombres de vélos loués")
+```
+
+```{r cars}
+velos_par_temperature <- aggregate(data$Rented.Bike.Count ~ data$Temperature.C., data = data, FUN = sum, na.rm = TRUE)
+colnames(velos_par_temperature) <- c("Temperature", "Total_velos")
+
+options(scipen=10)
+plot(velos_par_temperature$Temperature, velos_par_temperature$Total_velos, type = "l",        # "l" pour line (ligne)
+     col = "blue",            # Couleur de la courbe
+     lwd = 3,                 # Épaisseur de la ligne
+     main = "Evolution du nombre de vélos loués en fonction de la température",
+     xlab = "Température",
+     ylab = "Nombres de vélos loués")
+```
+
+```{r cars}
+velos_par_rosee <- aggregate(data$Rented.Bike.Count ~ data$Dew.point.temperature.C., data = data, FUN = sum, na.rm = TRUE)
+colnames(velos_par_rosee) <- c("Rosee", "Total_velos")
+
+options(scipen=10)
+plot(velos_par_rosee$Rosee, velos_par_rosee$Total_velos, type = "l",        # "l" pour line (ligne)
+     col = "blue",            # Couleur de la courbe
+     lwd = 3,                 # Épaisseur de la ligne
+     main = "Evolution du nombre de vélos loués en fonction de la température de la rosée",
+     xlab = "Température de la rosée",
+     ylab = "Nombres de vélos loués")
+```
+
+3.  Regression linéaire
+
+```{r cars}
+options(scipen = 10)  # Désactive l'affichage scientifique pour les grands nombres
+#toutes les variables
+model_all <- lm(Rented.Bike.Count~ ., data = data_filtre)
+
+# Résumé du modèle
+summary(model_all)
+
+```
+
+```{r cars}
+model_all-test = step(model_all, direction = "both", k = log(nrow(data_filtre)))
+```
+
+```{r cars}
+AIC_model <- lm(Rented.Bike.Count ~ Temperature.C. + Hour + Functioning.DayNum +  Humidity... + SeasonsNum + Rainfall.mm. + Solar.Radiation..MJ.m2. + HolidayNum , data=data_filtre)
+                    
+summary(AIC_model)
+
+```
+
+```{r cars}
+# uniquement les variables les plus corrélées avec notre variable cible
+
+model_1 <- lm(Rented.Bike.Count ~ Hour + Temperature.C. + Dew.point.temperature.C.,
+              data = data_filtre)
+
+summary(model_1)
+```
+
+```{r cars}
+# variable cible + variable les plus corélées avec notre variable cible + variable les moins corrélées
+model_2 <- lm(Rented.Bike.Count ~ Hour + Temperature.C. + Dew.point.temperature.C. + Wind.speed..m.s. + Solar.Radiation..MJ.m2.,
+              data = data_filtre)
+
+summary(model_2)
+```
+
+```{r cars}
+# uniquement les variables les moins corrélées
+
+model_3 <- lm(Rented.Bike.Count ~ Wind.speed..m.s. + Solar.Radiation..MJ.m2. + Rainfall.mm.  + Humidity... ,
+              data = data_filtre)
+
+summary(model_3)
+```
+
+```{r cars}
+
+print(" model_all - Toutes les variables :")
+sigma(model_all)
+print("model_1 Uniquement les variables fortement corrélées avec notre variable cible :")
+sigma(model_1) 
+print("model_2 Variables corrélées avec notre variable cible et variable les moins corrélées :")
+sigma(model_2) 
+print("model_3 Variables peu corrélées avec notre variable cible :")
+sigma(model_3) 
+print("distribution de la variable cible : ")
+summary(data_filtre$Rented.Bike.Count)
+
+```
+
+4.  Graphiques
+
+```{r cars}
+
+par(mfrow=c(2,2))
+
+plot(model_all)
+
+
+```
+
+4.  Graphiques : relation entre les résidus et les variables indépendantes
+
+```{r cars}
+
+e<-model_all$residuals 
+
+par(mfrow=c(3,2))
+
+for (j in 2:6){plot(data_filtre[,j],e,ylab="Résidus",xlab=names(data)[j]);abline(h=0)} 
+
+
+```
+
+5.  Définition des seuils
+
+```{r cars}
+
+res.standard <- rstandard(model_all)
+alpha <- 0.05
+seuil.standard <- qt(1-alpha, df= 3429)
+n <- 3434  # Nombre total d'observations (d'après Residuals Df + p + 1)
+p <- 5    # Nombre de variables explicatives (hors intercept)
+seuil_t <- qt(1 - alpha, df = n - p - 1)  # Correct !
+seuil_t
+```
+
+6.  Dispersion des résidus en comparaison avec les seuils : variable cible
+
+```{r cars}
+
+ab.standard <- data_filtre[res.standard < -seuil.standard | res.standard > +seuil.standard,] 
+
+print(ab.standard) 
+layout(1) 
+plot(data_filtre$Rented.Bike.Count,res.standard)
+for (i in 1:nrow(ab.standard)){ 
+  w <- row.names(ab.standard)[i]
+  text(data_filtre[w,"Rented.Bike.Count"],res.standard[w],w) 
+} 
+
+```
+
+7.  Etude des points atypiques
+
+```{r cars}
+
+atypiques <- influence.measures(model_all)
+res.hat <- atypiques$infmat[,"hat"]
+seuil.hat <- 2*(p+1)/n
+ab.hat <- data_filtre[res.hat > seuil.hat,]
+
+print(ab.hat)
+
+```
+
+8.  Visualisation des points influençant le modèle : distance de Cook
+
+```{r cars}
+
+library(car) 
+
+influencePlot(model_all, main="Influence Plot", sub="Circle size is proportional to Cook's Distance" ) 
+
+
+```
+
+9.  Création de la base de données sans les outliers
+
+```{r cars}
+
+res.student <- rstudent(model_all)
+seuil.student <- 2
+b.standard <- (res.standard < -seuil.standard | res.standard > +seuil.standard)
+b.student <- (res.student < -seuil.student | res.student > +seuil.student)
+b.hat <- (res.hat > seuil.hat)
+b.suspicious <- b.standard | b.student | b.hat
+b.not.suspicious <- !b.suspicious
+
+data_filtre.clean <- data_filtre[b.not.suspicious,] 
+
+print(nrow(data_filtre.clean))
+
+print(data_filtre.clean) 
+
+```
+
+10. Régression sans les outliers / modèle le plus optimisé
+
+```{r cars}
+
+model_clean<-lm(Rented.Bike.Count~ ., data=data_filtre.clean) 
+summary(model_clean)
+
+```
+
+```{r cars}
+
+sigma(model_clean)
+sigma(model_all)
+
+```
+
+11. Test de la généralisation de la regression linéaire - base de données test
+
+```{r cars}
+
+model_test <- lm(Rented.Bike.Count ~ ., data =test_data_filtre)
+summary(model_test)
+
+```
+
+Suppression des outliers de la base test :
+
+```{r cars}
+
+res.standard2 <- rstandard(model_test)
+alpha2 <- 0.05
+seuil.standard2 <- qt(1-alpha2, df= 273)
+n2 <- 285  # Nombre total d'observations (d'après Residuals Df + p2 + 1)
+p2 <- 12    # Nombre de variables explicatives (hors intercept)
+seuil_t2 <- qt(1 - alpha2, df = n2 - p2 - 1)  # Correct !
+
+
+ab.standard2 <- test_data_filtre[res.standard2 < -seuil.standard2 | res.standard2 > +seuil.standard2,] 
+
+atypiques2 <- influence.measures(model_test)
+res.hat2 <- atypiques2$infmat[,"hat"]
+seuil.hat2 <- 2*(p2+1)/n2
+ab.hat2 <- test_data_filtre[res.hat2 > seuil.hat2,]
+
+res.student2 <- rstudent(model_test)
+seuil.student2 <- 2
+b.standard2 <- (res.standard2 < -seuil.standard2 | res.standard2 > +seuil.standard2)
+b.student2 <- (res.student2 < -seuil.student2 | res.student2 > +seuil.student2)
+b.hat2 <- (res.hat2 > seuil.hat2)
+b.suspicious2 <- b.standard2 | b.student2 | b.hat2
+b.not.suspicious2 <- !b.suspicious2
+
+data_test_clean <- test_data_filtre[b.not.suspicious2,] 
+
+print(nrow(data_test_clean))
+
+print(data_test_clean) 
+
+```
+
+```{r cars}
+
+model_test_clean <- lm(Rented.Bike.Count ~ ., data =data_test_clean)
+summary(model_test_clean)
+```
+
+```{r cars}
+
+sigma(model_all)
+sigma(result_test_clean)
+sigma(model_test)
+sigma(model_test_clean)
+
+
+```
+
+```{r}
+
+library(caret)
+library(rpart)
+library(randomForest)
+library(ipred)
+install.packages("Metrics")
+library(Metrics)
+
+```
+
+```{r}
+data_final <- data_filtre.clean
+```
+
+5.  Méthodes à appliquer sur le modèle de base (Random Forest et KNN)
+
+Foret Aleatoire
+
+```{r}
+wage_rf1<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE)
+wage_rf1
+plot(wage_rf1)
+
+which.min(wage_rf1$mse)
+```
+
+```{r}
+
+##Param?tres de l'algorithme randomforest 
+#ntree=nbre d'arbres agr?g?s par d?faut=500
+#mtry=nbre de pr?dicteurs s?lectionn?s pour chaque noeud
+#    =racine de p en clssement et p/3 pour reg
+#nodesize=effectif mini pour chaque noeud
+#   =1 en classment et 5 en r?gression
+
+wage_rf2<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE,
+  mtry= 750)
+wage_rf2
+plot(wage_rf2)
+
+which.min(wage_rf2$mse)
+```
+
+```{r}
+
+##Param?tres de l'algorithme randomforest 
+#ntree=nbre d'arbres agr?g?s par d?faut=500
+#mtry=nbre de pr?dicteurs s?lectionn?s pour chaque noeud
+#    =racine de p en clssement et p/3 pour reg
+#nodesize=effectif mini pour chaque noeud
+#   =1 en classment et 5 en r?gression
+
+wage_rf50<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE,
+  ntree=150,
+  nodesize=5)
+wage_rf50
+plot(wage_rf50)
+
+which.min(wage_rf50$mse)
+```
+
+```{r}
+
+##Param?tres de l'algorithme randomforest 
+#ntree=nbre d'arbres agr?g?s par d?faut=500
+#mtry=nbre de pr?dicteurs s?lectionn?s pour chaque noeud
+#    =racine de p en clssement et p/3 pour reg
+#nodesize=effectif mini pour chaque noeud
+#   =1 en classment et 5 en r?gression
+
+wage_rf30<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE,
+  ntree=30,
+  nodesize=5)
+wage_rf30
+plot(wage_rf30)
+
+which.min(wage_rf30$mse)
+```
+
+```{r}
+
+##Param?tres de l'algorithme randomforest 
+#ntree=nbre d'arbres agr?g?s par d?faut=500
+#mtry=nbre de pr?dicteurs s?lectionn?s pour chaque noeud
+#    =racine de p en clssement et p/3 pour reg
+#nodesize=effectif mini pour chaque noeud
+#   =1 en classment et 5 en r?gression
+
+wage_rf100<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE,
+  ntree=100,
+  nodesize=5)
+wage_rf100
+plot(wage_rf100)
+
+which.min(wage_rf100$mse)
+```
+
+```{r}
+
+##Param?tres de l'algorithme randomforest 
+#ntree=nbre d'arbres agr?g?s par d?faut=500
+#mtry=nbre de pr?dicteurs s?lectionn?s pour chaque noeud
+#    =racine de p en clssement et p/3 pour reg
+#nodesize=effectif mini pour chaque noeud
+#   =1 en classment et 5 en r?gression
+
+wage_rf130<-randomForest(
+  Rented.Bike.Count ~ .,
+  data=data_final,
+  keep.forest=TRUE,
+  ntree=130,
+  nodesize=5)
+wage_rf130
+plot(wage_rf130)
+
+which.min(wage_rf130$mse)
+```
+
+5.2 Test de généralisation du random forest sur la base test
+
+```{r}
+
+# Performance finale sur le test set
+final_predictions <- predict(wage_rf130, test_data)
+final_rmse <- sqrt(mean((final_predictions - test_data$Rented.Bike.Count)^2))
+
+cat("RMSE final avec tuning:", final_rmse, "\n")
+
+```
+
+KNN
+
+```{r}
+library(rsample) 
+library(dplyr)
+library(gbm)          # basic implementation
+library(xgboost)      # a faster implementation of gbm
+    
+library(modeldata)
+library(ISLR)
+library(class)
+library(dplyr)
+train_knn <- data_final
+test_knn <- data_test_clean
+
+
+library(caret)
+
+# 1. One-hot encoding (création de variables binaires)
+
+
+train_knn$Seasons <- as.factor(train_knn$Seasons)
+train_knn$Holiday <- as.factor(train_knn$Holiday)
+test_knn$Seasons <- as.factor(test_knn$Seasons)
+test_knn$Holiday <- as.factor(test_knn$Holiday)
+
+dummies <- dummyVars(Rented.Bike.Count ~ ., data = train_knn)
+X_train_knn <- predict(dummies, newdata = train_knn)
+X_test_knn <- predict(dummies, newdata = test_knn)
+
+y_train_knn <- train_knn$Rented.Bike.Count
+y_test_knn <- test_knn$Rented.Bike.Count
+
+# 2. KNN Regression
+set.seed(42)
+model_knn <- train(
+  x = X_train_knn, 
+  y = y_train_knn,
+  method = "knn",
+  trControl = ctrl,
+  tuneLength = 10
+)
+
+# 3. Prédictions
+pred_knn <- predict(model_knn, newdata = X_test_knn)
+
+# 4. Évaluation
+rmse_knn <- rmse(y_test_knn, pred_knn)
+mae_knn <- mae(y_test_knn, pred_knn)
+r2_knn <- R2(pred_knn, y_test_knn)
+
+cat("KNN (k =", model_knn$bestTune$k, ")\n")
+cat("RMSE :", round(rmse_knn, 2), "\n")
+cat("MAE :", round(mae_knn, 2), "\n")
+cat("R² :", round(r2_knn, 3), "\n")
+
+#################
+#Vérifications 
+y_test_knnDF<-as.data.frame(y_test_knn)
+
+# matrice de confusion imparfaite
+table(pred_knn,y_test_knn) #Matrice de confusion#
+```
+
+Graphique de comparaison
+
+```{r}
+# Création d'une table avec les scores
+results <- data.frame(
+  Modèle = c("Régression linéaire", "Arbre de décision", "Bagging", "Forêt aléatoire", paste0("KNN (k=", model_knn$bestTune$k, ")")),
+  RMSE = c(rmse_lm, rmse_tree, rmse_bagging, rmse_rf, rmse_knn),
+  R2 = c(r2_lm, r2_tree, r2_bagging, r2_rf, r2_knn)
+)
+
+# Graphique comparatif RMSE
+library(ggplot2)
+
+ggplot(results, aes(x = reorder(Modèle, RMSE), y = RMSE)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Comparaison des modèles – RMSE", x = "Modèle", y = "RMSE") +
+  theme_minimal()
+
+# Graphique comparatif R²
+ggplot(results, aes(x = reorder(Modèle, -R2), y = R2)) +
+  geom_col(fill = "darkgreen") +
+  coord_flip() +
+  labs(title = "Comparaison des modèles – R²", x = "Modèle", y = "R²") +
+  theme_minimal()
+
+```
+
+Tableau recapitulatif
+
+```{r}
+# Résumé des performances croisées
+results_cv <- resamples(list(
+  Régression_Linéaire = model_lm_cv,
+  Arbre_Décision = model_tree_cv,
+  Bagging = model_bagging_cv,
+  Forêt_Aléatoire = model_rf_cv,
+  KNN = model_knn_cv
+))
+
+# Extraire les moyennes uniquement
+cv_summary <- summary(results_cv)$statistics
+
+# Vérifie si les colonnes SD existent
+has_rmse_sd <- "SD" %in% colnames(cv_summary$RMSE)
+has_r2_sd <- "SD" %in% colnames(cv_summary$Rsquared)
+
+# Construction du tableau avec ou sans SD
+if (has_rmse_sd && has_r2_sd) {
+  cv_table <- data.frame(
+    Modèle = rownames(cv_summary$RMSE),
+    RMSE_moyen = round(cv_summary$RMSE[, "Mean"], 2),
+    RMSE_sd = round(cv_summary$RMSE[, "SD"], 2),
+    R2_moyen = round(cv_summary$Rsquared[, "Mean"], 3),
+    R2_sd = round(cv_summary$Rsquared[, "SD"], 3)
+  )
+} else {
+  cv_table <- data.frame(
+    Modèle = rownames(cv_summary$RMSE),
+    RMSE_moyen = round(cv_summary$RMSE[, "Mean"], 2),
+    R2_moyen = round(cv_summary$Rsquared[, "Mean"], 3)
+  )
+}
+
+# Affichage
+knitr::kable(cv_table, caption = "Performances moyennes en validation croisée (5 plis)")
+
+
+```
