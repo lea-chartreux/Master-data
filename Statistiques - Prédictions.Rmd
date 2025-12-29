@@ -663,3 +663,4 @@ knitr::kable(cv_table, caption = "Performances moyennes en validation croisée (
 
 
 ```
+
