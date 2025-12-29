@@ -1,4 +1,4 @@
-
+CHARTREUX Léa -  VAN DEN EYNDE Célia
 Choix de la base de données :
 
 Séoul Bike Sharing Demand
@@ -663,4 +663,5 @@ knitr::kable(cv_table, caption = "Performances moyennes en validation croisée (
 
 
 ```
+
 
